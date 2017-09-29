@@ -1,3 +1,9 @@
 <resources>
-    <string name="app_name">DingDingHongBao</string>
+    <string name="app_name">钉钉红包</string>
+    <string name="service_desc">开启服务，回到钉钉聊天，红包自动领取</string>
+    <string name="open_service">点击开启服务</string>
+    <string name="close_service">点击关闭服务</string>
+    <string name="turn_on_toast">点击钉钉红包 开启服务</string>
+    <string name="turn_off_toast">点击钉钉红包 关闭服务</string>
+    <string name="turn_on_error_toast">遇到一些问题,请手动打开系统设置>无障碍服务>钉钉红包 开启服务</string>
 </resources>
