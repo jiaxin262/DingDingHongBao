@@ -8,6 +8,8 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import com.android.jiaxin.dingdinghongbao.HongBaoSignature;
+
 import java.util.List;
 
 public class DdHbService extends AccessibilityService {
@@ -18,9 +20,10 @@ public class DdHbService extends AccessibilityService {
     private static final String DD_EXPIRES = "已超过24小时";
     private static final String DD_VIEW_SELF_CH = "查看红包";
     private static final String DD_VIEW_OTHERS_CH = "领取红包";
-    private static final String DD_HONGBAO_PICK_ACTIVITY = "FestivalRedPacketsPickActivity";
+    private static final String DD_HONGBAO_PICK_ACTIVITY = "PickRedPacketsActivity";
     private static final String DD_HONGBAO_DETAIL_ACTIVITY = "RedPacketsDetailActivity";
-    private static final String DD_GENERAL_ACTIVITY = "biz.SplashActivity";
+    private static final String DD_GENERAL_ACTIVITY = "HomeActivity";
+    private static final String DD_CHAT_ACTIVITY = "ChatMsgActivity";
     private String mCurrentActivityName = DD_GENERAL_ACTIVITY;
 
     private AccessibilityNodeInfo rootNodeInfo;
@@ -30,6 +33,8 @@ public class DdHbService extends AccessibilityService {
     private boolean mLuckyMoneyReceived;
     private boolean mMutex = false;
     private boolean mChatMutex = false;
+
+    private HongBaoSignature signature = new HongBaoSignature();
 
     private int mUnpackCount = 0;
 
@@ -77,7 +82,9 @@ public class DdHbService extends AccessibilityService {
         checkNodeInfo(event.getEventType());
 
         /* 如果已经接收到红包并且还没有戳开 */
+        Log.d(TAG, "mLuckyMoneyReceived:" + mLuckyMoneyReceived + " ,mLuckyMoneyPicked:" + mLuckyMoneyPicked);
         if (mLuckyMoneyReceived && !mLuckyMoneyPicked && (mReceiveNode != null)) {
+            Log.d(TAG, "点击红包，打开拆红包页面");
             mMutex = true;
             mReceiveNode.getParent().performAction(AccessibilityNodeInfo.ACTION_CLICK);
             mLuckyMoneyReceived = false;
@@ -92,6 +99,7 @@ public class DdHbService extends AccessibilityService {
                             try {
                                 openPacket();
                             } catch (Exception e) {
+                                Log.d(TAG, "Exception e:" + e);
                                 mMutex = false;
                                 mLuckyMoneyPicked = false;
                                 mUnpackCount = 0;
@@ -106,25 +114,25 @@ public class DdHbService extends AccessibilityService {
         if (this.rootNodeInfo == null) {
             return;
         }
-//        if (signature.commentString != null) {
-//            sendComment();
-//            signature.commentString = null;
-//        }
 
         /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
-        AccessibilityNodeInfo node1 = this.getTheLastNode(DD_VIEW_OTHERS_CH, DD_VIEW_SELF_CH);
-        if (node1 != null && mCurrentActivityName.contains(DD_GENERAL_ACTIVITY)) {
-//            if (this.signature.generateSignature(node1, excludeWords)) {
-                mLuckyMoneyReceived = true;
-                mReceiveNode = node1;
-//                Log.d("sig", this.signature.toString());
-//            }
-            return;
+        if (mCurrentActivityName.contains(DD_CHAT_ACTIVITY)) {
+            AccessibilityNodeInfo node1 = this.getTheLastNode(DD_VIEW_OTHERS_CH, DD_VIEW_SELF_CH);
+            Log.d(TAG, "查看红包node:" + node1);
+            if (node1 != null) {
+                if (this.signature.generateSignature(node1)) {
+                    mLuckyMoneyReceived = true;
+                    mReceiveNode = node1;
+                    Log.d(TAG, "准备打开拆红包页面");
+                }
+                return;
+            }
         }
 
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        if (node2 != null && "android.widget.Button".equals(node2.getClassName()) 
+        Log.d(TAG, "开 按钮：" + node2);
+        if (node2 != null && "android.widget.ImageButton".equals(node2.getClassName())
                 && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)) {
             mUnpackNode = node2;
             mUnpackCount += 1;
@@ -133,14 +141,14 @@ public class DdHbService extends AccessibilityService {
 
         /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
         boolean hasNodes = this.hasOneOfThoseNodes(DD_HAND_SLOWLY, DD_LOOK_OTHERS_LUCK, DD_EXPIRES);
-        if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && hasNodes
+        Log.d(TAG, "是否已抢完 | 过期：" + hasNodes);
+        if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && (mCurrentActivityName.contains(DD_HONGBAO_DETAIL_ACTIVITY)
-                || mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY))) {
+                || (hasNodes && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)))) {
             mMutex = false;
             mLuckyMoneyPicked = false;
             mUnpackCount = 0;
             performGlobalAction(GLOBAL_ACTION_BACK);
-//            signature.commentString = generateCommentString();
         }
     }
 
@@ -165,7 +173,6 @@ public class DdHbService extends AccessibilityService {
                 if (bounds.bottom > bottom) {
                     bottom = bounds.bottom;
                     lastNode = tempNode;
-//                    signature.others = text.equals(WECHAT_VIEW_OTHERS_CH);
                 }
             }
         }
@@ -178,7 +185,7 @@ public class DdHbService extends AccessibilityService {
         }
         //非layout元素
         if (node.getChildCount() == 0) {
-            if ("android.widget.Button".equals(node.getClassName())) {
+            if ("android.widget.ImageButton".equals(node.getClassName())) {
                 return node;
             } else {
                 return null;
@@ -209,6 +216,7 @@ public class DdHbService extends AccessibilityService {
     }
 
     private void openPacket() {
+        Log.d(TAG, "抢红包！！！");
         mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
 //
 //        DisplayMetrics metrics = getResources().getDisplayMetrics();
