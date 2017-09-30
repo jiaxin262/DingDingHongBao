@@ -17,12 +17,14 @@ import java.util.List;
 
 public class DdHbService extends AccessibilityService {
     public static final String TAG = "DdHbService";
-    
+
     private static final String DD_LOOK_OTHERS_LUCK = "看看哪些人拿了该红包";
     private static final String DD_HAND_SLOWLY = "手慢了，抢完了";
     private static final String DD_EXPIRES = "已超过24小时";
     private static final String DD_VIEW_SELF_CH = "查看红包";
     private static final String DD_VIEW_OTHERS_CH = "领取红包";
+    private static final String DD_TIMER_BUTTON = "抢红包";
+    private static final String DD_TIMER_BUTTON_BROTHER = "秒后关闭";
     private static final String DD_HONGBAO_PICK_ACTIVITY = "PickRedPacketsActivity";
     private static final String DD_HONGBAO_DETAIL_ACTIVITY = "RedPacketsDetailActivity";
     private static final String DD_GENERAL_ACTIVITY = "HomeActivity";
@@ -95,7 +97,7 @@ public class DdHbService extends AccessibilityService {
         }
         /* 如果戳开但还未领取 */
         if (mUnpackCount == 1 && (mUnpackNode != null)) {
-            int delayFlag = 700;
+            int delayFlag = 200;
             new android.os.Handler().postDelayed(
                     new Runnable() {
                         public void run() {
@@ -118,22 +120,37 @@ public class DdHbService extends AccessibilityService {
             return;
         }
 
-        /* 聊天会话窗口，遍历节点匹配“领取红包”和"查看红包" */
+        /* 聊天会话窗口 */
         if (mCurrentActivityName.contains(DD_CHAT_ACTIVITY)) {
+            /* 遍历节点匹配定时红包的"抢红包"和"x秒后关闭" */
+            AccessibilityNodeInfo timerNode = getTheLastNode(DD_TIMER_BUTTON);
+            AccessibilityNodeInfo timerNode2 = getTheLastNode(DD_TIMER_BUTTON_BROTHER);
+            Log.d(TAG, "抢红包node:" + timerNode + " ,node2:" + timerNode2);
+            if (timerNode != null && timerNode2 != null) {
+                mLuckyMoneyReceived = true;
+                mReceiveNode = timerNode;
+                Log.d(TAG, "准备从-定时红包-打开拆红包页面");
+                return;
+            }
+            /* 遍历节点匹配“领取红包”和"查看红包" */
             AccessibilityNodeInfo node1 = this.getTheLastNode(DD_VIEW_OTHERS_CH, DD_VIEW_SELF_CH);
             Log.d(TAG, "查看红包node:" + node1);
             if (node1 != null) {
                 if (this.signature.generateSignature(node1)) {
                     mLuckyMoneyReceived = true;
                     mReceiveNode = node1;
-                    Log.d(TAG, "准备打开拆红包页面");
+                    Log.d(TAG, "准备从-聊天列表-打开拆红包页面");
                 }
                 return;
             }
         }
         boolean hasValideNodes = true;
-        /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
         if (mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)) {
+            /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
+            hasValideNodes = this.hasOneOfThoseNodes(DD_HAND_SLOWLY, DD_LOOK_OTHERS_LUCK, DD_EXPIRES);
+            Log.d(TAG, "是否已抢完 | 过期：" + hasValideNodes);
+
+            /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
             AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
             Log.d(TAG, "拆 按钮：" + node2);
             if (node2 != null && "android.widget.ImageButton".equals(node2.getClassName())
@@ -142,10 +159,8 @@ public class DdHbService extends AccessibilityService {
                 mUnpackCount += 1;
                 return;
             }
-        /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
-            hasValideNodes = this.hasOneOfThoseNodes(DD_HAND_SLOWLY, DD_LOOK_OTHERS_LUCK, DD_EXPIRES);
-            Log.d(TAG, "是否已抢完 | 过期：" + hasValideNodes);
         }
+        Log.d(TAG, "mMutex:" + mMutex);
         if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && (mCurrentActivityName.contains(DD_HONGBAO_DETAIL_ACTIVITY)
                 || (hasValideNodes && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)))) {
@@ -231,33 +246,33 @@ public class DdHbService extends AccessibilityService {
 //        if (android.os.Build.VERSION.SDK_INT <= 23) {
 //            mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
 //        } else {
-            if (android.os.Build.VERSION.SDK_INT > 23) {
+        if (android.os.Build.VERSION.SDK_INT > 23) {
 
-                Path path = new Path();
-                if (640 == dpi) {
-                    path.moveTo(720, 1575);
-                } else {
-                    path.moveTo(700, 1800);
-                }
-                GestureDescription.Builder builder = new GestureDescription.Builder();
-                GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 450, 50)).build();
-                dispatchGesture(gestureDescription, new GestureResultCallback() {
-                    @Override
-                    public void onCompleted(GestureDescription gestureDescription) {
-                        Log.d(TAG, "onCompleted");
-                        mMutex = true;
-                        super.onCompleted(gestureDescription);
-                    }
-
-                    @Override
-                    public void onCancelled(GestureDescription gestureDescription) {
-                        Log.d(TAG, "onCancelled");
-                        mMutex = true;
-                        super.onCancelled(gestureDescription);
-                    }
-                }, null);
-
+            Path path = new Path();
+            if (640 == dpi) {
+                path.moveTo(780, 1925);
+            } else {
+                path.moveTo(700, 1800);
             }
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+            GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 10, 20)).build();
+            dispatchGesture(gestureDescription, new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription gestureDescription) {
+                    Log.d(TAG, "onCompleted");
+                    mMutex = true;
+                    super.onCompleted(gestureDescription);
+                }
+
+                @Override
+                public void onCancelled(GestureDescription gestureDescription) {
+                    Log.d(TAG, "onCancelled");
+                    mMutex = true;
+                    super.onCancelled(gestureDescription);
+                }
+            }, null);
+
+        }
 //        }
     }
 
