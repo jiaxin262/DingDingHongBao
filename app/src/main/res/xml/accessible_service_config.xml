@@ -8,4 +8,5 @@
     android:notificationTimeout="10"
     android:settingsActivity="com.android.jiaxin.dingdinghongbao.MainActivity"
     android:accessibilityFlags="flagDefault"
-    android:canRetrieveWindowContent="true"/>
+    android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"/>

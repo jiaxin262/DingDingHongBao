@@ -1,9 +1,12 @@
 package com.android.jiaxin.dingdinghongbao.services;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
 import android.content.ComponentName;
 import android.content.pm.PackageManager;
+import android.graphics.Path;
 import android.graphics.Rect;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -15,7 +18,7 @@ import java.util.List;
 public class DdHbService extends AccessibilityService {
     public static final String TAG = "DdHbService";
     
-    private static final String DD_LOOK_OTHERS_LUCK = "看看大家的手气";
+    private static final String DD_LOOK_OTHERS_LUCK = "看看哪些人拿了该红包";
     private static final String DD_HAND_SLOWLY = "手慢了，抢完了";
     private static final String DD_EXPIRES = "已超过24小时";
     private static final String DD_VIEW_SELF_CH = "查看红包";
@@ -128,23 +131,24 @@ public class DdHbService extends AccessibilityService {
                 return;
             }
         }
-
+        boolean hasValideNodes = true;
         /* 戳开红包，红包还没抢完，遍历节点匹配“拆红包” */
-        AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
-        Log.d(TAG, "开 按钮：" + node2);
-        if (node2 != null && "android.widget.ImageButton".equals(node2.getClassName())
-                && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)) {
-            mUnpackNode = node2;
-            mUnpackCount += 1;
-            return;
-        }
-
+        if (mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)) {
+            AccessibilityNodeInfo node2 = findOpenButton(this.rootNodeInfo);
+            Log.d(TAG, "拆 按钮：" + node2);
+            if (node2 != null && "android.widget.ImageButton".equals(node2.getClassName())
+                    && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)) {
+                mUnpackNode = node2;
+                mUnpackCount += 1;
+                return;
+            }
         /* 戳开红包，红包已被抢完，遍历节点匹配“红包详情”和“手慢了” */
-        boolean hasNodes = this.hasOneOfThoseNodes(DD_HAND_SLOWLY, DD_LOOK_OTHERS_LUCK, DD_EXPIRES);
-        Log.d(TAG, "是否已抢完 | 过期：" + hasNodes);
+            hasValideNodes = this.hasOneOfThoseNodes(DD_HAND_SLOWLY, DD_LOOK_OTHERS_LUCK, DD_EXPIRES);
+            Log.d(TAG, "是否已抢完 | 过期：" + hasValideNodes);
+        }
         if (mMutex && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
                 && (mCurrentActivityName.contains(DD_HONGBAO_DETAIL_ACTIVITY)
-                || (hasNodes && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)))) {
+                || (hasValideNodes && mCurrentActivityName.contains(DD_HONGBAO_PICK_ACTIVITY)))) {
             mMutex = false;
             mLuckyMoneyPicked = false;
             mUnpackCount = 0;
@@ -185,6 +189,7 @@ public class DdHbService extends AccessibilityService {
         }
         //非layout元素
         if (node.getChildCount() == 0) {
+            Log.d(TAG, "className:" + node.getClassName());
             if ("android.widget.ImageButton".equals(node.getClassName())) {
                 return node;
             } else {
@@ -195,8 +200,9 @@ public class DdHbService extends AccessibilityService {
         AccessibilityNodeInfo button;
         for (int i = 0; i < node.getChildCount(); i++) {
             button = findOpenButton(node.getChild(i));
-            if (button != null)
+            if (button != null) {
                 return button;
+            }
         }
         return null;
     }
@@ -216,41 +222,42 @@ public class DdHbService extends AccessibilityService {
     }
 
     private void openPacket() {
+//        mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         Log.d(TAG, "抢红包！！！");
-        mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
 //
-//        DisplayMetrics metrics = getResources().getDisplayMetrics();
-//        float dpi = metrics.density;
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        float dpi = metrics.densityDpi;
+        Log.d(TAG, "density:" + dpi);
 //        if (android.os.Build.VERSION.SDK_INT <= 23) {
 //            mUnpackNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
 //        } else {
-//            if (android.os.Build.VERSION.SDK_INT > 23) {
-//
-//                Path path = new Path();
-//                if (640 == dpi) {
-//                    path.moveTo(720, 1575);
-//                } else {
-//                    path.moveTo(540, 1060);
-//                }
-//                GestureDescription.Builder builder = new GestureDescription.Builder();
-//                GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 450, 50)).build();
-//                dispatchGesture(gestureDescription, new GestureResultCallback() {
-//                    @Override
-//                    public void onCompleted(GestureDescription gestureDescription) {
-//                        Log.d("test", "onCompleted");
-//                        mMutex = false;
-//                        super.onCompleted(gestureDescription);
-//                    }
-//
-//                    @Override
-//                    public void onCancelled(GestureDescription gestureDescription) {
-//                        Log.d("test", "onCancelled");
-//                        mMutex = false;
-//                        super.onCancelled(gestureDescription);
-//                    }
-//                }, null);
-//
-//            }
+            if (android.os.Build.VERSION.SDK_INT > 23) {
+
+                Path path = new Path();
+                if (640 == dpi) {
+                    path.moveTo(720, 1575);
+                } else {
+                    path.moveTo(700, 1800);
+                }
+                GestureDescription.Builder builder = new GestureDescription.Builder();
+                GestureDescription gestureDescription = builder.addStroke(new GestureDescription.StrokeDescription(path, 450, 50)).build();
+                dispatchGesture(gestureDescription, new GestureResultCallback() {
+                    @Override
+                    public void onCompleted(GestureDescription gestureDescription) {
+                        Log.d(TAG, "onCompleted");
+                        mMutex = true;
+                        super.onCompleted(gestureDescription);
+                    }
+
+                    @Override
+                    public void onCancelled(GestureDescription gestureDescription) {
+                        Log.d(TAG, "onCancelled");
+                        mMutex = true;
+                        super.onCancelled(gestureDescription);
+                    }
+                }, null);
+
+            }
 //        }
     }
 
