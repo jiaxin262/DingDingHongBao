@@ -97,7 +97,7 @@ public class DdHbService extends AccessibilityService {
         }
         /* 如果戳开但还未领取 */
         if (mUnpackCount == 1 && (mUnpackNode != null)) {
-            int delayFlag = 200;
+            int delayFlag = 50;
             new android.os.Handler().postDelayed(
                     new Runnable() {
                         public void run() {
